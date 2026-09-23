@@ -79,6 +79,15 @@ with tempfile.TemporaryDirectory() as tmp:
     env.pop("TYPESAFE_API_KEY")
     r = subprocess.run([sys.executable, str(skill / "scripts/personalize.py"), "--key", "test-key",
                         "--out", tmp], env=env, capture_output=True, text=True)
+    # Run it twice from inside the skill folder with the default --out: the second
+    # run must not pick up the first run's zip, and neither may nest itself.
+    for _ in range(2):
+        subprocess.run([sys.executable, "scripts/personalize.py", "--key", "test-key"],
+                       env=env, capture_output=True, text=True, cwd=skill)
+    inside = skill / f"{NAME}-personal.zip"
+    nested = [n for n in zipfile.ZipFile(inside).namelist() if n.endswith(".zip")] if inside.exists() else ["<missing>"]
+    check(not nested, "personalize run from inside the folder doesn't zip itself", nested)
+    inside.unlink(missing_ok=True)
     personal = Path(tmp) / f"{NAME}-personal.zip"
     check(r.returncode == 0 and personal.exists(), "personalize.py builds a keyed zip", r.stderr.strip())
     if personal.exists():

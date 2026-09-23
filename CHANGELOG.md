@@ -4,6 +4,14 @@
 and add an entry here, and merging to `main` cuts the release. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versioning is [semver](https://semver.org).
 
+## [0.1.1] — 2026-09-23
+
+### Fixed
+
+- `personalize.py` run from inside the skill folder zipped its own output into
+  the zip, which the skill uploader rejects as a security error. It now lists the
+  files first and skips any `.zip`. `build_skill.py` skips stray zips too.
+
 ## [0.1.0] — 2026-09-23
 
 First release.

@@ -19,18 +19,23 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 NAME = "vibe-classification"
 
 
+def keep(rel, f):
+    return (f.is_file() and rel.name != "key" and rel.suffix != ".zip"
+            and "__pycache__" not in rel.parts and not any(p.startswith(".") for p in rel.parts))
+
+
 def build(key, out_dir, skill_dir=SKILL_DIR):
     key = key.strip()
     if not key:
         raise SystemExit("personalize: no key given (use --key or TYPESAFE_API_KEY)")
     out = Path(out_dir) / f"{NAME}-personal.zip"
+    # List the files before opening the zip, and skip zips: run from inside the
+    # skill folder, the output would otherwise land in its own listing and nest
+    # itself, which the skill uploader rejects.
+    files = [f for f in sorted(skill_dir.rglob("*")) if keep(f.relative_to(skill_dir), f)]
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted(skill_dir.rglob("*")):
-            rel = f.relative_to(skill_dir)
-            if f.is_dir() or rel.name == "key" or "__pycache__" in rel.parts \
-                    or any(p.startswith(".") for p in rel.parts):
-                continue
-            z.write(f, f"{NAME}/{rel.as_posix()}")
+        for f in files:
+            z.write(f, f"{NAME}/{f.relative_to(skill_dir).as_posix()}")
         z.writestr(f"{NAME}/key", key + "\n")
     return out
 
