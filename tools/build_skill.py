@@ -45,7 +45,7 @@ def check():
 
 
 def ignore(_dir, names):
-    return [n for n in names if n.startswith(".") or n == "__pycache__" or n == "key"]
+    return [n for n in names if n.startswith(".") or n == "__pycache__" or n == "key" or n.endswith(".zip")]
 
 
 def build(v):

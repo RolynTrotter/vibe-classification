@@ -3,7 +3,7 @@ name: vibe-classification
 description: Fast gut-call judgments via TypeSafe's Jev, a System One model that returns calibrated yes/no probabilities, one-of-N choices, or scores instead of text. Use to triage or tag a list (emails, messages, tickets, notes), check whether documents, search results or webpages are relevant before spending effort reading them, filter or rank candidates, or put a quick vibe label on anything that fits a closed set of answers. Also use when the user wants to draft, test, or A/B the wording of a classification question, or mentions Jev, TypeSafe, or System One.
 compatibility: Python 3 (stdlib only). Needs network access to api.typesafe.ai and a TypeSafe API key (baked in by scripts/personalize.py, or TYPESAFE_API_KEY).
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   source: "https://github.com/RolynTrotter/vibe-classification"
 ---
 
