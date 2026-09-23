@@ -1,0 +1,39 @@
+name: ci
+
+# Tests the engine, then builds and tests the uploadable zip on every push and PR,
+# and keeps it as an artifact so an unreleased main is still downloadable.
+# Publishing is release.yml's job, not this one.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 3.9, not the latest: the chat sandbox's Python may lag, and jev.py claims stdlib-only 3.9+.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Unit tests (fake API, no key)
+        run: python -m unittest discover tests -v
+      - name: Build the zip
+        run: python tools/build_skill.py
+      - name: Check it's uploadable and runs
+        run: python tools/test_skill.py
+      - name: Read version
+        id: v
+        run: |
+          echo "version=$(sed -n 's/^ *version: *"\(.*\)"/\1/p' skills/vibe-classification/SKILL.md)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vibe-classification-skill-${{ steps.v.outputs.version }}
+          path: dist/vibe-classification-*.zip
+          if-no-files-found: error

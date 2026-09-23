@@ -1,0 +1,83 @@
+name: release
+
+# Merging to main releases if and only if the version changed. SKILL.md's
+# metadata.version is the source of truth: this workflow reads it, tags v<version>,
+# and attaches the skill zip. A merge that leaves the version alone publishes nothing.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Two runs racing on the same tag would both see it absent, and the loser would fail.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release on a version bump
+    runs-on: ubuntu-latest
+    steps:
+      # Full history, so the tag check below can see existing tags.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: SKILL.md and CHANGELOG.md must agree
+        run: python tools/build_skill.py --check
+
+      - name: Read the version
+        id: v
+        run: |
+          version="$(sed -n 's/^ *version: *"\(.*\)"/\1/p' skills/vibe-classification/SKILL.md)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Has this version already been released?
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.v.outputs.tag }} exists; nothing to release."
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test, build and check the zip
+        if: steps.check.outputs.fresh == 'true'
+        run: |
+          python -m unittest discover tests
+          python tools/build_skill.py
+          python tools/test_skill.py
+
+      # Create when absent, upload when present. A draft release made in the web UI
+      # has no tag yet (so the check above passes) but still blocks `gh release create`.
+      - name: Publish the release
+        if: steps.check.outputs.fresh == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          TAG: ${{ steps.v.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          notes="Download \`vibe-classification-${VERSION}.zip\` below. For a copy with your TypeSafe key built in, run \`python3 scripts/personalize.py --key <KEY>\` from the unzipped folder, or ask Claude to run it in a chat. Upload the result in claude.ai under **Settings → Capabilities → Skills**. Code execution must be on, with \`api.typesafe.ai\` in its allowed domains.
+
+          Changes are in [CHANGELOG.md](https://github.com/${REPO}/blob/${TAG}/CHANGELOG.md)."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/vibe-classification-*.zip --clobber
+          else
+            gh release create "$TAG" dist/vibe-classification-*.zip \
+              --target "$GITHUB_SHA" --title "vibe-classification $TAG" --notes "$notes"
+          fi
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "assets on $TAG: ${assets:-<none>}"
+          case "$assets" in
+            *vibe-classification-*.zip) ;;
+            *) echo "::error::no zip attached to $TAG"; exit 1 ;;
+          esac
