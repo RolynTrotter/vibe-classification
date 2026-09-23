@@ -100,6 +100,10 @@ class Batch(unittest.TestCase):
         _, out, _ = run(spec)
         self.assertIn("compare v1 vs v2", out)
 
+    def test_label_uses_first_text_field(self):
+        self.assertEqual(jev.label("AAA", {"candle": "long lower wick", "n": 3}), "AAA · long lower wick")
+        self.assertEqual(jev.label("2", {"n": 3}), '  2 {"n": 3}')
+
     def test_json_and_context(self):
         _, out, _ = run({"ask": {"q": "YES?"}, "items": ["hi"], "context": {"who": "Rolyn"},
                          "show": "json"})

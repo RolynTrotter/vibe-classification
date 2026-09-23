@@ -150,7 +150,8 @@ def label(iid, state, width=48):
                 state = state[k]
                 break
         else:
-            state = json.dumps(state, ensure_ascii=False)
+            first = next((v for v in state.values() if isinstance(v, str)), None)
+            state = first if first is not None else json.dumps(state, ensure_ascii=False)
     s = " ".join(str(state).split())
     s = s if len(s) <= width else s[: width - 1] + "…"
     return f"{iid:>3} {s}" if iid.isdigit() else f"{iid} · {s}"
@@ -162,7 +163,10 @@ def post(body, key, tries=5):
     data = json.dumps(body).encode()
     req = urllib.request.Request(
         f"{BASE_URL}/v1/systemone", data=data, method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+        # A custom User-Agent is required: Cloudflare in front of the API rejects
+        # Python-urllib's default with a bare 403 "error code: 1010".
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "User-Agent": "vibe-classification (python)"})
     delay = 1.0
     for attempt in range(tries):
         try:
@@ -179,7 +183,7 @@ def post(body, key, tries=5):
                 raise Fatal("TypeSafe rejected the key (401). Check the key or rebuild the personal zip.")
             if e.code == 422:
                 raise Fatal(f"TypeSafe says the request is malformed (422): {text[:600]}")
-            if e.code in (403, 407) and "typesafe" not in text.lower():
+            if e.code in (403, 407) and "typesafe" not in text.lower() and "error code" not in text:
                 raise Fatal(f"{NETWORK_HINT} (HTTP {e.code}: {text[:200].strip()})")
             raise RuntimeError(f"HTTP {e.code}: {text[:300]}")
         except urllib.error.URLError as e:

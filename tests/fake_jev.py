@@ -39,6 +39,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         Handler.calls.append(body)
+        if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+            return self.reply(403, "error code: 1010")  # what Cloudflare really sends
         if self.headers.get("Authorization") != "Bearer test-key":
             return self.reply(401, {"detail": "bad key"})
         if "RATELIMIT" in json.dumps(body["state"]) and not getattr(Handler, "limited", False):
